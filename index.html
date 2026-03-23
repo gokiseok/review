@@ -68,6 +68,53 @@
       margin-bottom: 10px;
     }
 
+    .api-key-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    .api-key-row input {
+      flex: 1;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 0.9rem;
+      padding: 10px 14px;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    .api-key-row input:focus { border-color: var(--gold); }
+    .api-key-row input::placeholder { color: #444; }
+
+    .btn-save-key {
+      padding: 10px 16px;
+      background: transparent;
+      color: var(--gold);
+      font-family: inherit;
+      font-size: 0.85rem;
+      font-weight: 600;
+      border: 1px solid var(--gold);
+      border-radius: 8px;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: background 0.2s, color 0.2s;
+    }
+
+    .btn-save-key:hover { background: var(--gold); color: #111; }
+    .btn-save-key.saved { border-color: #4caf50; color: #4caf50; }
+
+    .key-status {
+      font-size: 0.75rem;
+      margin-top: 8px;
+      color: var(--muted);
+    }
+
+    .key-status.ok { color: #4caf50; }
+    .key-status.none { color: #e57373; }
+
     textarea {
       width: 100%;
       min-height: 140px;
@@ -112,7 +159,6 @@
       margin-top: 8px;
     }
 
-    /* Result */
     .result-card {
       width: 100%;
       max-width: 680px;
@@ -184,7 +230,6 @@
     .btn-copy:hover { background: var(--gold); color: #111; }
     .btn-copy.copied { background: #1a3a1a; border-color: #4caf50; color: #4caf50; }
 
-    /* Loader */
     .loader {
       display: inline-block;
       width: 16px;
@@ -199,7 +244,6 @@
 
     @keyframes spin { to { transform: rotate(360deg); } }
 
-    /* Error */
     .error-msg {
       color: #e57373;
       font-size: 0.85rem;
@@ -220,18 +264,29 @@
     <p>리뷰 붙여넣기 → 답글 생성 → 복사. 끝.</p>
   </header>
 
+  <!-- API Key -->
+  <div class="card">
+    <label>Anthropic API Key</label>
+    <div class="api-key-row">
+      <input type="password" id="apiKeyInput" placeholder="sk-ant-..." />
+      <button class="btn-save-key" id="saveKeyBtn" onclick="saveKey()">저장</button>
+    </div>
+    <div class="key-status" id="keyStatus"></div>
+  </div>
+
+  <!-- Review Input -->
   <div class="card">
     <label for="review">고객 리뷰</label>
     <textarea
       id="review"
       placeholder="네이버 플레이스에서 고객 리뷰를 복사해서 붙여넣으세요."
-      autofocus
     ></textarea>
     <div class="error-msg" id="errorMsg"></div>
     <button class="btn-generate" id="generateBtn" onclick="generate()">답글 생성</button>
     <div class="hint">⌘ + Enter / Ctrl + Enter</div>
   </div>
 
+  <!-- Result -->
   <div class="result-card" id="resultCard">
     <div class="result-box">
       <div class="result-header">
@@ -248,19 +303,75 @@
   </div>
 
   <script>
-    const reviewEl = document.getElementById('review');
-    const generateBtn = document.getElementById('generateBtn');
-    const resultCard = document.getElementById('resultCard');
-    const outputEl = document.getElementById('output');
-    const copyBtn = document.getElementById('copyBtn');
-    const errorMsg = document.getElementById('errorMsg');
+    const SYSTEM_PROMPT = `당신은 서울 광진구 건대입구역 근처 통갈매기살 전문 고기집 고기석의 사장님입니다.
+고객 리뷰를 보고 네이버 플레이스 사장님 답글을 작성합니다.
+리뷰의 감정, 적절한 톤, SEO 키워드를 직접 판단하세요.
+SEO 키워드(건대 고기집, 건대 회식, 건대 단체모임, 건대청첩장모임, 건대룸식당, 건대병원맛집) 중 1~2개를 자연스럽게 포함.
+답글 2~4문장(100~200자), 이모지 최대 1개, 매장명 고기석 1회 언급, 재방문 유도 포함.
+답글 텍스트만 출력.`;
 
-    // Keyboard shortcut
+    const KEY_STORAGE = 'gokiseok_api_key';
+
+    const apiKeyInput = document.getElementById('apiKeyInput');
+    const saveKeyBtn  = document.getElementById('saveKeyBtn');
+    const keyStatus   = document.getElementById('keyStatus');
+    const reviewEl    = document.getElementById('review');
+    const generateBtn = document.getElementById('generateBtn');
+    const resultCard  = document.getElementById('resultCard');
+    const outputEl    = document.getElementById('output');
+    const copyBtn     = document.getElementById('copyBtn');
+    const errorMsg    = document.getElementById('errorMsg');
+
+    // 저장된 키 불러오기
+    (function init() {
+      const saved = localStorage.getItem(KEY_STORAGE);
+      if (saved) {
+        apiKeyInput.value = saved;
+        showKeyStatus(true);
+      } else {
+        showKeyStatus(false);
+      }
+    })();
+
+    function saveKey() {
+      const key = apiKeyInput.value.trim();
+      if (!key.startsWith('sk-ant-')) {
+        keyStatus.textContent = '올바른 Anthropic API 키를 입력해주세요. (sk-ant- 로 시작)';
+        keyStatus.className = 'key-status none';
+        return;
+      }
+      localStorage.setItem(KEY_STORAGE, key);
+      showKeyStatus(true);
+      saveKeyBtn.textContent = '저장됨';
+      saveKeyBtn.classList.add('saved');
+      setTimeout(() => {
+        saveKeyBtn.textContent = '저장';
+        saveKeyBtn.classList.remove('saved');
+      }, 2000);
+    }
+
+    function showKeyStatus(ok) {
+      if (ok) {
+        keyStatus.textContent = '✓ API 키가 이 브라우저에 저장되어 있습니다.';
+        keyStatus.className = 'key-status ok';
+      } else {
+        keyStatus.textContent = 'API 키가 없습니다. 입력 후 저장하세요.';
+        keyStatus.className = 'key-status none';
+      }
+    }
+
+    // 단축키
     reviewEl.addEventListener('keydown', e => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') generate();
     });
 
     async function generate() {
+      const apiKey = localStorage.getItem(KEY_STORAGE);
+      if (!apiKey) {
+        showError('먼저 API 키를 입력하고 저장해주세요.');
+        return;
+      }
+
       const review = reviewEl.value.trim();
       if (!review) {
         showError('리뷰를 입력해주세요.');
@@ -273,19 +384,30 @@
       outputEl.textContent = '';
 
       try {
-        const res = await fetch('/api/generate', {
+        const res = await fetch('https://api.anthropic.com/v1/messages', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ review }),
+          headers: {
+            'x-api-key': apiKey,
+            'anthropic-version': '2023-06-01',
+            'anthropic-dangerous-direct-browser-access': 'true',
+            'content-type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: 'claude-sonnet-4-5',
+            max_tokens: 512,
+            system: SYSTEM_PROMPT,
+            messages: [{ role: 'user', content: review }],
+          }),
         });
 
         if (!res.ok) {
           const err = await res.json().catch(() => ({}));
-          throw new Error(err.error || `서버 오류 (${res.status})`);
+          throw new Error(err?.error?.message || `API 오류 (${res.status})`);
         }
 
         const data = await res.json();
-        outputEl.textContent = data.reply;
+        const reply = data?.content?.[0]?.text?.trim() || '';
+        outputEl.textContent = reply;
         resultCard.classList.add('visible');
         copyBtn.textContent = '복사';
         copyBtn.classList.remove('copied');
