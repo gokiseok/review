@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>고기석 리뷰 답글 생성기</title>
+  <link href="https://fonts.googleapis.com/css2?family=Pretendard:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #111;
+      --surface: #1a1a1a;
+      --border: #2a2a2a;
+      --gold: #c4953a;
+      --gold-hover: #d4a84a;
+      --text: #e8e8e8;
+      --muted: #888;
+      --radius: 12px;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Pretendard', -apple-system, sans-serif;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 16px;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 36px;
+    }
+
+    header h1 {
+      font-size: 1.5rem;
+      font-weight: 700;
+      color: var(--gold);
+      letter-spacing: -0.02em;
+    }
+
+    header p {
+      margin-top: 6px;
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+
+    .card {
+      width: 100%;
+      max-width: 680px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+      margin-bottom: 16px;
+    }
+
+    label {
+      display: block;
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 10px;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 140px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--text);
+      font-family: inherit;
+      font-size: 0.95rem;
+      line-height: 1.6;
+      padding: 14px;
+      resize: vertical;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    textarea:focus { border-color: var(--gold); }
+    textarea::placeholder { color: #444; }
+
+    .btn-generate {
+      width: 100%;
+      margin-top: 14px;
+      padding: 14px;
+      background: var(--gold);
+      color: #111;
+      font-family: inherit;
+      font-size: 1rem;
+      font-weight: 700;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.2s, opacity 0.2s;
+    }
+
+    .btn-generate:hover:not(:disabled) { background: var(--gold-hover); }
+    .btn-generate:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .hint {
+      text-align: center;
+      font-size: 0.75rem;
+      color: #444;
+      margin-top: 8px;
+    }
+
+    /* Result */
+    .result-card {
+      width: 100%;
+      max-width: 680px;
+      display: none;
+    }
+
+    .result-card.visible { display: block; }
+
+    .result-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 24px;
+    }
+
+    .result-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+    }
+
+    .result-header label { margin-bottom: 0; }
+
+    .btn-reset {
+      background: none;
+      border: none;
+      color: var(--muted);
+      font-family: inherit;
+      font-size: 0.8rem;
+      cursor: pointer;
+      padding: 4px 8px;
+      border-radius: 6px;
+      transition: color 0.2s;
+    }
+    .btn-reset:hover { color: var(--text); }
+
+    #output {
+      min-height: 80px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 14px;
+      font-size: 0.95rem;
+      line-height: 1.7;
+      white-space: pre-wrap;
+      outline: none;
+      transition: border-color 0.2s;
+    }
+
+    #output:focus { border-color: var(--gold); }
+    #output:empty::before { content: attr(data-placeholder); color: #444; }
+
+    .btn-copy {
+      width: 100%;
+      margin-top: 12px;
+      padding: 12px;
+      background: transparent;
+      color: var(--gold);
+      font-family: inherit;
+      font-size: 0.9rem;
+      font-weight: 600;
+      border: 1px solid var(--gold);
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.2s, color 0.2s;
+    }
+
+    .btn-copy:hover { background: var(--gold); color: #111; }
+    .btn-copy.copied { background: #1a3a1a; border-color: #4caf50; color: #4caf50; }
+
+    /* Loader */
+    .loader {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid #111;
+      border-top-color: transparent;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      vertical-align: middle;
+      margin-right: 6px;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Error */
+    .error-msg {
+      color: #e57373;
+      font-size: 0.85rem;
+      margin-top: 10px;
+      display: none;
+    }
+
+    @media (max-width: 480px) {
+      body { padding: 24px 12px; }
+      header h1 { font-size: 1.2rem; }
+    }
+  </style>
+</head>
+<body>
+
+  <header>
+    <h1>고기석 리뷰 답글 생성기</h1>
+    <p>리뷰 붙여넣기 → 답글 생성 → 복사. 끝.</p>
+  </header>
+
+  <div class="card">
+    <label for="review">고객 리뷰</label>
+    <textarea
+      id="review"
+      placeholder="네이버 플레이스에서 고객 리뷰를 복사해서 붙여넣으세요."
+      autofocus
+    ></textarea>
+    <div class="error-msg" id="errorMsg"></div>
+    <button class="btn-generate" id="generateBtn" onclick="generate()">답글 생성</button>
+    <div class="hint">⌘ + Enter / Ctrl + Enter</div>
+  </div>
+
+  <div class="result-card" id="resultCard">
+    <div class="result-box">
+      <div class="result-header">
+        <label>생성된 답글 (수정 가능)</label>
+        <button class="btn-reset" onclick="reset()">초기화</button>
+      </div>
+      <div
+        id="output"
+        contenteditable="true"
+        data-placeholder="답글이 여기에 표시됩니다."
+      ></div>
+      <button class="btn-copy" id="copyBtn" onclick="copy()">복사</button>
+    </div>
+  </div>
+
+  <script>
+    const reviewEl = document.getElementById('review');
+    const generateBtn = document.getElementById('generateBtn');
+    const resultCard = document.getElementById('resultCard');
+    const outputEl = document.getElementById('output');
+    const copyBtn = document.getElementById('copyBtn');
+    const errorMsg = document.getElementById('errorMsg');
+
+    // Keyboard shortcut
+    reviewEl.addEventListener('keydown', e => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') generate();
+    });
+
+    async function generate() {
+      const review = reviewEl.value.trim();
+      if (!review) {
+        showError('리뷰를 입력해주세요.');
+        return;
+      }
+
+      clearError();
+      setLoading(true);
+      resultCard.classList.remove('visible');
+      outputEl.textContent = '';
+
+      try {
+        const res = await fetch('/api/generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ review }),
+        });
+
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.error || `서버 오류 (${res.status})`);
+        }
+
+        const data = await res.json();
+        outputEl.textContent = data.reply;
+        resultCard.classList.add('visible');
+        copyBtn.textContent = '복사';
+        copyBtn.classList.remove('copied');
+      } catch (err) {
+        showError(err.message || '알 수 없는 오류가 발생했습니다.');
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    async function copy() {
+      const text = outputEl.innerText.trim();
+      if (!text) return;
+      try {
+        await navigator.clipboard.writeText(text);
+        copyBtn.textContent = '복사 완료!';
+        copyBtn.classList.add('copied');
+        setTimeout(() => {
+          copyBtn.textContent = '복사';
+          copyBtn.classList.remove('copied');
+        }, 2000);
+      } catch {
+        copyBtn.textContent = '복사 실패';
+      }
+    }
+
+    function reset() {
+      reviewEl.value = '';
+      outputEl.textContent = '';
+      resultCard.classList.remove('visible');
+      clearError();
+      reviewEl.focus();
+    }
+
+    function setLoading(on) {
+      generateBtn.disabled = on;
+      generateBtn.innerHTML = on
+        ? '<span class="loader"></span>생성 중…'
+        : '답글 생성';
+    }
+
+    function showError(msg) {
+      errorMsg.textContent = msg;
+      errorMsg.style.display = 'block';
+    }
+
+    function clearError() {
+      errorMsg.style.display = 'none';
+      errorMsg.textContent = '';
+    }
+  </script>
+</body>
+</html>
